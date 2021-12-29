@@ -1,0 +1,224 @@
+.NOLIST
+#INCLUDE "ti83plus.inc"
+#INCLUDE "linkport.inc"
+#DEFINE    ProgStart    $9D95
+.LIST
+.ORG    ProgStart - 2
+.DB    t2ByteTok, tAsmCmp
+	
+	CALL Install_ISR
+	
+main:
+	
+	CALL readRegisters
+	
+	LD A, (exitState)
+	CP 1
+	JR NZ, main
+	
+	CALL Kill_ISR
+	
+	LD A, $D0			;exit
+	OUT (0), A
+	RET
+
+readRegisters:
+	LD IX, appBackUpScreen
+	LD A, %11111110
+	LD (register), A
+	LD A, 0
+	LD (registerIndex), A
+readRegistersLoop:	
+	LD C, 1
+	LD A, $FF
+	OUT (C), A
+	NOP
+	NOP
+	LD A, (register)
+	OUT (C), A
+	NOP
+	NOP
+	IN A, (C)
+	LD (inputBuffer), A
+	
+	CALL readKeys
+	
+	LD A, (register)
+	RLC A
+	CP %01111111
+	RET Z
+	LD (register), A
+	INC IX
+	LD A, (registerIndex)
+	INC A
+	LD (registerIndex), A
+	JR readRegistersLoop
+
+readKeys:
+	LD A, %00000001
+	LD (buttonMask), A
+	LD A, 0
+	LD (buttonIndex), A
+readKeysLoop:
+	LD A, (buttonMask)
+	LD B, A
+	LD A, (inputBuffer)
+	AND B
+	OR A
+	JR Z, down
+	JR NZ, up
+endCheck:
+	
+	LD A, (buttonMask)
+	RLC A
+	CP %00000001
+	RET Z
+	LD (buttonMask), A
+	LD A, (buttonIndex)
+	INC A
+	LD (buttonIndex), A
+	JR readKeysLoop
+
+down:
+	LD A, (buttonMask)
+	LD B, A
+	LD A, (IX)
+	AND B
+	OR A
+	JR NZ, endCheck		;return if flag is one
+	
+	LD A, (IX)
+	XOR B
+	LD (IX), A
+	
+	LD A, (buttonIndex)
+	LD B, A
+	LD A, (registerIndex)
+	LD C, A
+	RLC C
+	RLC C
+	RLC C
+	RLC C
+	LD A, %00001000
+	OR B
+	OR C
+	LD (buffer), A
+	CALL write
+	JR endCheck
+	
+up:
+	LD A, (buttonMask)
+	LD B, A
+	LD A, (IX)
+	AND B
+	OR A
+	JR Z, endCheck		;return if flag is zero
+	
+	LD A, (IX)
+	XOR B
+	LD (IX), A
+	
+	LD A, (buttonIndex)
+	LD B, A
+	LD A, (registerIndex)
+	LD C, A
+	RLC C
+	RLC C
+	RLC C
+	RLC C
+	LD A, %00000000
+	OR B
+	OR C
+	LD (buffer), A
+	CALL write
+	JR endCheck
+
+write:
+	LD D, %10000000
+	LD E, $D1
+writeLoop:
+	LD A, (buffer)
+	AND D
+	OR A
+	CALL Z, low
+	CALL NZ, high
+	RRC D
+	LD A, E
+	OUT (0), A
+	XOR 1
+	LD E, A
+	CALL delay
+	LD A, D
+	CP %10000000
+	JR NZ, writeLoop
+	RET
+low:
+	SET 1, E
+	RET
+high:
+	RES 1, E
+	RET
+
+delay:
+	LD A, 10
+delayLoop:
+	DEC A
+	JR NZ, delayLoop
+	RET
+
+Install_ISR:
+	DI
+	LD HL, $8B00
+	LD (HL), $8A
+	LD DE, $8B01
+	LD BC, 256
+	LDIR
+	
+	LD HL, Interrupt_Start
+	LD DE, $8A8A
+	LD BC, Interrupt_End - Interrupt_Start
+	LDIR
+	
+	LD A, %00001000
+	OUT (3), A
+	LD A, %00001001
+	OUT (3), A
+	
+	LD A, $8B
+	LD I, A
+	IM 2
+	EI
+	RET
+	
+Kill_ISR:
+	DI
+	IM 1
+	RET
+
+Interrupt_Start:
+	EXX
+	EX AF, AF'
+	
+	LD A, 1
+	LD (exitState), A
+	
+	LD A, %00001000
+	OUT (3), A
+	LD A, %00001001
+	OUT (3), A
+	EX AF, AF'
+	EXX
+	EI
+	RET
+Interrupt_End:
+
+inputBuffer		.DB		0
+register:		.DB		%11111110
+registerIndex	.DB		0
+buttonMask:		.DB		%00000001
+buttonIndex		.DB		0
+buttonFlags		.DB		0
+buffer:			.DB		0
+exitState		.DB		0
+.END
+.END
