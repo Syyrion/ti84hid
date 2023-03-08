@@ -78,7 +78,7 @@ enum direction : char
 #define MOUSE_WHEEL_UP (MOUSE_WHEEL | UP)
 #define MOUSE_WHEEL_DOWN (MOUSE_WHEEL | DOWN)
 
-unsigned short keymap[MAPS][7][8] = {
+const unsigned short keymap[MAPS][7][8] = {
     {
         // DOWN | LEFT | RIGHT | UP | <unused> | <unused> | <unused> | <unused>
         {MOUSE_MOVE_DOWN, MOUSE_MOVE_LEFT, MOUSE_MOVE_RIGHT, MOUSE_MOVE_UP, 0, 0, 0, 0},
@@ -310,9 +310,7 @@ bool metaevent(char index, char bit)
     char event = metamap[index][bit];
     if (!event)
         return false;
-
     reset();
-
     switch (event)
     {
     case PREV:
@@ -378,9 +376,7 @@ void setup(void)
     attachInterrupt(digitalPinToInterrupt(CLOCK), receive, CHANGE);
     pinMode(DATA, INPUT);
     pinMode(LED_BUILTIN, OUTPUT);
-
     led.blink(1);
-
     reset();
 }
 
